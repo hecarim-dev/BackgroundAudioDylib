@@ -1,4 +1,4 @@
-name: Build BackgroundAudioDylib (Auto-Signed Stable)
+name: Build BackgroundAudioDylib
 
 on:
   workflow_dispatch:
@@ -8,57 +8,52 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout repo
+      - name: 📦 Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup deps
+      - name: ⚙️ Setup environment
         run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt update -y || true
-          sudo apt install -y wget curl tar unzip dpkg-dev fakeroot clang make perl || true
-          # download ldid (procursus)
-          wget -q https://apt.procurs.us/dists/1800/main/binary-amd64/ldid_2.1.5-procursus4_amd64.deb -O /tmp/ldid.deb || true
-          sudo dpkg -i /tmp/ldid.deb || true
-          ldid -v || echo "ldid ok"
+          sudo apt update -y
+          sudo apt install -y wget curl tar unzip dpkg-dev fakeroot clang make perl
+          wget -q https://apt.procurs.us/dists/1800/main/binary-amd64/ldid_2.1.5-procursus4_amd64.deb -O /tmp/ldid.deb
+          sudo dpkg -i /tmp/ldid.deb
+          echo "✅ Environment ready"
 
-      - name: Download theos env (from your release)
+      - name: 🌐 Setup Theos
         run: |
-          mkdir -p ~/theos_env
-          cd ~/theos_env
+          mkdir ~/theos_env && cd ~/theos_env
           wget -q https://github.com/hecarim-dev/theos-env-backup/releases/download/v1.0.0/theos_env_full_backup.tar.gz
-          tar -xzf theos_env_full_backup.tar.gz || true
-          sudo mv theos /opt/theos || true
-          ls -la /opt/theos || true
+          tar -xzf theos_env_full_backup.tar.gz
+          sudo mv theos /opt/theos
+          echo "✅ Theos installed"
 
-      - name: Build package (.deb)
+      - name: 🛠️ Build tweak (.deb)
         run: |
           export THEOS=/opt/theos
           export PATH=$THEOS/bin:$PATH
           make clean || true
           make package FINALPACKAGE=1
-          echo "packages dir:"
+          echo "✅ Build done"
           ls -la packages || true
 
-      - name: Extract & sign dylib
+      - name: 🎯 Extract & Sign dylib
         run: |
           mkdir -p output
           DEB=$(ls packages/*.deb 2>/dev/null | head -n 1)
           if [ -z "$DEB" ]; then
-            echo "No .deb found" && exit 1
+            echo "❌ No .deb found!"
+            exit 1
           fi
           dpkg-deb -x "$DEB" tmp
           find tmp -name "*.dylib" -exec cp {} output/BackgroundAudio_ready4eSign.dylib \;
-          if [ -f output/BackgroundAudio_ready4eSign.dylib ]; then
-            ldid -S output/BackgroundAudio_ready4eSign.dylib || echo "signed (or ldid failed but continuing)"
-            ls -la output/
-          else
-            echo "No dylib found in package" && exit 1
-          fi
+          ldid -S output/BackgroundAudio_ready4eSign.dylib
+          echo "✅ Signed dylib ready"
+          ls -la output/
 
-      - name: Upload artifact
+      - name: 🚀 Upload dylib artifact
         uses: actions/upload-artifact@v4
         with:
           name: BackgroundAudio_ready4eSign
