@@ -1,4 +1,4 @@
-name: Build Theos Tweak (.dylib auto extract – stable v3)
+name: Build Theos Tweak (.dylib stable v4)
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # ⚙️ Dùng Ubuntu cũ hơn cho Theos tương thích
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
 
     steps:
@@ -16,40 +16,45 @@ jobs:
 
       - name: ⚙️ Setup environment & install deps
         run: |
-          sudo apt update -y
-          sudo apt install -y wget curl tar unzip dpkg-dev fakeroot clang make perl
-          # 🧩 Cài ldid từ Procursus hoặc mirror thay thế
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt update -y || true
+          sudo apt install -y wget curl tar unzip dpkg-dev fakeroot clang make perl || true
+          # 🧩 Cài ldid thủ công để tránh lỗi apt
           wget -q https://apt.procurs.us/dists/1800/main/binary-amd64/ldid_2.1.5-procursus4_amd64.deb -O /tmp/ldid.deb || \
-          wget -q https://apt.procurs.us/dists/darwin/main/binary-amd64/ldid_2.1.5_amd64.deb -O /tmp/ldid.deb
+          wget -q https://apt.procurs.us/dists/darwin/main/binary-amd64/ldid_2.1.5_amd64.deb -O /tmp/ldid.deb || true
           sudo dpkg -i /tmp/ldid.deb || true
-          ldid -v || echo "✅ Installed ldid successfully."
+          ldid -v || echo "✅ ldid installed"
 
       - name: 🌐 Download Theos Environment
         run: |
           mkdir ~/theos_env
           cd ~/theos_env
           wget -q https://github.com/hecarim-dev/theos-env-backup/releases/download/v1.0.0/theos_env_full_backup.tar.gz
-          tar -xzf theos_env_full_backup.tar.gz
+          tar -xzf theos_env_full_backup.tar.gz || true
           sudo mkdir -p /opt
-          find . -type d -name "theos" -exec sudo mv {} /opt/theos \;
-          echo "✅ Theos structure:"
-          ls -la /opt/theos
+          find . -type d -name "theos" -exec sudo mv {} /opt/theos \; || true
+          echo "✅ Theos setup done:"
+          ls -la /opt/theos/bin || true
 
       - name: 🛠️ Build tweak
         run: |
           export THEOS=/opt/theos
           export PATH=$THEOS/bin:$PATH
           echo "🔧 Using Theos from: $THEOS"
-          make clean
+          make clean || true
           make FINALPACKAGE=1 || make
 
       - name: 🎯 Extract dylib from .deb
         run: |
           mkdir -p output
-          DEB_FILE=$(ls packages/*.deb | head -n 1)
+          DEB_FILE=$(ls packages/*.deb 2>/dev/null | head -n 1)
+          if [ -z "$DEB_FILE" ]; then
+            echo "❌ No .deb package found!"
+            exit 1
+          fi
           echo "📦 Found package: $DEB_FILE"
           dpkg-deb -x "$DEB_FILE" tmp_deb
-          find tmp_deb -name "*.dylib" -exec cp {} output/ \;
+          find tmp_deb -name "*.dylib" -exec cp {} output/ \; || true
           echo "✅ Extracted dylibs:"
           ls -la output/
 
