@@ -1,0 +1,9 @@
+Package: com.hecarim.backgroundaudio
+Name: BackgroundAudio
+Depends: mobilesubstrate
+Version: 1.0
+Architecture: iphoneos-arm
+Description: Enable background playback + audio mix
+Maintainer: Hecarim
+Author: Hecarim
+Section: Tweaks
