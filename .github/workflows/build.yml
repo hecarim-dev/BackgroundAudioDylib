@@ -1,0 +1,35 @@
+name: Build Theos Tweak
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Download Theos Environment
+        run: |
+          mkdir ~/theos_env
+          cd ~/theos_env
+          wget https://github.com/hecarim-dev/theos-env-backup/releases/download/v1.0.0/theos_env_full_backup.tar.gz
+          tar -xzf theos_env_full_backup.tar.gz
+          mv theos /opt/theos
+
+      - name: Build tweak
+        run: |
+          export THEOS=/opt/theos
+          export PATH=$THEOS/bin:$PATH
+          make clean
+          make package FINALPACKAGE=1
+
+      - name: Upload dylib artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BackgroundAudio.dylib
+          path: packages/*.deb
