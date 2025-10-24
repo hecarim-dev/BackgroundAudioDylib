@@ -1,5 +1,3 @@
-cat > BackgroundAudio.plist <<'EOF'
 {
   Filter = {};
 }
-EOF
