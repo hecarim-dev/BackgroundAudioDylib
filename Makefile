@@ -1,15 +1,13 @@
-ARCHS = arm64 arm64e
-TARGET = iphone:clang:latest:15.0
-INSTALL_TARGET_PROCESSES = VLC
+export TARGET = iphone:clang:latest:14.0
+export ARCHS = arm64 arm64e
+export THEOS_PACKAGE_SCHEME = rootless
 
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = BackgroundAudio
 BackgroundAudio_FILES = Tweak.xm
-BackgroundAudio_FRAMEWORKS = AVFoundation UIKit
-BackgroundAudio_CFLAGS = -fobjc-arc
+BackgroundAudio_FRAMEWORKS = UIKit AVFoundation Foundation
+BackgroundAudio_CFLAGS = -fobjc-arc -w
+BackgroundAudio_LDFLAGS += -undefined dynamic_lookup
 
 include $(THEOS_MAKE_PATH)/tweak.mk
-
-after-install::
-	install.exec "killall -9 SpringBoard"
