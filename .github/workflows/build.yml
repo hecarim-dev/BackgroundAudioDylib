@@ -1,4 +1,4 @@
-name: Build Theos Tweak
+name: Build Theos Tweak (.dylib extract)
 
 on:
   workflow_dispatch:
@@ -8,28 +8,47 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout source
+      - name: 📦 Checkout source
         uses: actions/checkout@v4
 
-      - name: Download Theos Environment
+      - name: ⚙️ Setup environment & install deps
+        run: |
+          sudo apt update
+          sudo apt install -y dpkg-dev ldid fakeroot unzip wget tar
+
+      - name: 🌐 Download Theos Environment
         run: |
           mkdir ~/theos_env
           cd ~/theos_env
-          wget https://github.com/hecarim-dev/theos-env-backup/releases/download/v1.0.0/theos_env_full_backup.tar.gz
+          wget -q https://github.com/hecarim-dev/theos-env-backup/releases/download/v1.0.0/theos_env_full_backup.tar.gz
           tar -xzf theos_env_full_backup.tar.gz
-          mv theos /opt/theos
+          sudo mkdir -p /opt
+          find . -type d -name "theos" -exec sudo mv {} /opt/theos \;
+          echo "✅ Theos structure:"
+          ls -la /opt/theos
 
-      - name: Build tweak
+      - name: 🛠️ Build tweak
         run: |
           export THEOS=/opt/theos
           export PATH=$THEOS/bin:$PATH
           make clean
-          make package FINALPACKAGE=1
+          make FINALPACKAGE=1
 
-      - name: Upload dylib artifact
+      - name: 🎯 Extract dylib from .deb
+        run: |
+          mkdir -p output
+          DEB_FILE=$(ls packages/*.deb | head -n 1)
+          echo "📦 Found package: $DEB_FILE"
+          dpkg-deb -x "$DEB_FILE" tmp_deb
+          find tmp_deb -name "*.dylib" -exec cp {} output/ \;
+          echo "✅ Extracted dylibs:"
+          ls -la output/
+
+      - name: 🚀 Upload dylib artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BackgroundAudio.dylib
-          path: packages/*.deb
+          name: Built-Dylibs
+          path: output/*.dylib
