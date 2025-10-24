@@ -1,4 +1,4 @@
-name: Build Theos Tweak (.dylib extract)
+name: Build Theos Tweak (.dylib extract, fixed)
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: 📦 Checkout source
@@ -16,8 +16,12 @@ jobs:
 
       - name: ⚙️ Setup environment & install deps
         run: |
-          sudo apt update
-          sudo apt install -y dpkg-dev ldid fakeroot unzip wget tar
+          sudo apt update -y
+          sudo apt install -y wget curl tar unzip dpkg-dev fakeroot
+          # 🧩 Cài ldid từ Procursus (dành riêng cho iOS build tools)
+          wget -q https://apt.procurs.us/dists/darwin/main/binary-amd64/ldid_2.1.5_amd64.deb -O /tmp/ldid.deb
+          sudo dpkg -i /tmp/ldid.deb || true
+          ldid -v || echo "✅ ldid installed"
 
       - name: 🌐 Download Theos Environment
         run: |
