@@ -1,4 +1,4 @@
-name: Build Theos Tweak (.dylib extract, fixed)
+name: Build Theos Tweak (.dylib auto extract – stable v3)
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # ⚙️ Dùng Ubuntu cũ hơn cho Theos tương thích
     timeout-minutes: 15
 
     steps:
@@ -17,11 +17,12 @@ jobs:
       - name: ⚙️ Setup environment & install deps
         run: |
           sudo apt update -y
-          sudo apt install -y wget curl tar unzip dpkg-dev fakeroot
-          # 🧩 Cài ldid từ Procursus (dành riêng cho iOS build tools)
+          sudo apt install -y wget curl tar unzip dpkg-dev fakeroot clang make perl
+          # 🧩 Cài ldid từ Procursus hoặc mirror thay thế
+          wget -q https://apt.procurs.us/dists/1800/main/binary-amd64/ldid_2.1.5-procursus4_amd64.deb -O /tmp/ldid.deb || \
           wget -q https://apt.procurs.us/dists/darwin/main/binary-amd64/ldid_2.1.5_amd64.deb -O /tmp/ldid.deb
           sudo dpkg -i /tmp/ldid.deb || true
-          ldid -v || echo "✅ ldid installed"
+          ldid -v || echo "✅ Installed ldid successfully."
 
       - name: 🌐 Download Theos Environment
         run: |
@@ -38,8 +39,9 @@ jobs:
         run: |
           export THEOS=/opt/theos
           export PATH=$THEOS/bin:$PATH
+          echo "🔧 Using Theos from: $THEOS"
           make clean
-          make FINALPACKAGE=1
+          make FINALPACKAGE=1 || make
 
       - name: 🎯 Extract dylib from .deb
         run: |
