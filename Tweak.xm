@@ -1,4 +1,3 @@
-cat > Tweak.xm <<'EOF'
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
 
@@ -244,4 +243,3 @@ static void init_background_audio() {
         }
     });
 }
-EOF
