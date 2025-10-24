@@ -1,0 +1,84 @@
+name: Build BackgroundAudioDylib (Auto-Signed Stable)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup dependencies
+        run: |
+          set -eux
+          sudo apt update -y
+          sudo apt install -y wget curl tar unzip dpkg-dev fakeroot clang make perl build-essential libz-dev || true
+          if ! command -v ldid >/dev/null 2>&1; then
+            echo "⚠️  ldid not found, skipping system install"
+          fi
+          ldid -v || true
+
+      - name: Download theos environment
+        run: |
+          set -eux
+          mkdir -p ~/theos_env
+          cd ~/theos_env
+          wget -q --show-progress -O theos_env_full_backup.tar.gz \
+            "https://github.com/hecarim-dev/theos-env-backup/releases/download/v1.0.0/theos_env_full_backup.tar.gz"
+          ROOTDIR=$(tar -tzf theos_env_full_backup.tar.gz | head -n1 | cut -d'/' -f1)
+          tar -xzf theos_env_full_backup.tar.gz
+          if [ -d "$ROOTDIR" ]; then
+            sudo rm -rf /opt/theos || true
+            sudo mv "$ROOTDIR" /opt/theos
+          else
+            FOUND=$(find . -type d -name theos | head -n1)
+            if [ -n "$FOUND" ]; then
+              sudo rm -rf /opt/theos || true
+              sudo mv "$FOUND" /opt/theos
+            else
+              echo "❌ Could not find theos folder inside archive"
+              exit 1
+            fi
+          fi
+          ls -la /opt/theos || true
+
+      - name: Build tweak (.deb)
+        env:
+          THEOS: /opt/theos
+          THEOS_MAKE_PATH: /opt/theos/makefiles
+        run: |
+          set -eux
+          export THEOS=/opt/theos
+          export THEOS_MAKE_PATH=/opt/theos/makefiles
+          cd $GITHUB_WORKSPACE
+          make clean || true
+          make package FINALPACKAGE=1
+
+      - name: Extract dylib from .deb
+        run: |
+          set -eux
+          mkdir -p output
+          DEB=$(ls packages/*.deb 2>/dev/null | head -n1 || true)
+          if [ -z "$DEB" ]; then
+            echo "❌ No .deb file found"
+            exit 1
+          fi
+          dpkg-deb -x "$DEB" tmp
+          find tmp -name "*.dylib" -exec cp {} output/BackgroundAudio_ready4eSign.dylib \;
+          if [ ! -f output/BackgroundAudio_ready4eSign.dylib ]; then
+            echo "❌ No dylib extracted"
+            exit 1
+          fi
+          ls -lh output
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BackgroundAudio_ready4eSign
+          path: output/*.dylib
