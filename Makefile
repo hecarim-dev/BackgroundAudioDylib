@@ -1,4 +1,3 @@
-cat > Makefile <<'EOF'
 export TARGET = iphone:clang:latest:15.0
 export ARCHS = arm64 arm64e
 export THEOS_PACKAGE_SCHEME = rootless
@@ -12,4 +11,3 @@ BackgroundAudio_CFLAGS = -fobjc-arc -w
 BackgroundAudio_LDFLAGS += -undefined dynamic_lookup
 
 include $(THEOS_MAKE_PATH)/tweak.mk
-EOF
