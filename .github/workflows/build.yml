@@ -1,4 +1,4 @@
-name: Build Theos Tweak (.dylib stable v4)
+name: Build BackgroundAudioDylib
 
 on:
   workflow_dispatch:
@@ -19,9 +19,7 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           sudo apt update -y || true
           sudo apt install -y wget curl tar unzip dpkg-dev fakeroot clang make perl || true
-          # 🧩 Cài ldid thủ công để tránh lỗi apt
-          wget -q https://apt.procurs.us/dists/1800/main/binary-amd64/ldid_2.1.5-procursus4_amd64.deb -O /tmp/ldid.deb || \
-          wget -q https://apt.procurs.us/dists/darwin/main/binary-amd64/ldid_2.1.5_amd64.deb -O /tmp/ldid.deb || true
+          wget -q https://apt.procurs.us/dists/1800/main/binary-amd64/ldid_2.1.5-procursus4_amd64.deb -O /tmp/ldid.deb || true
           sudo dpkg -i /tmp/ldid.deb || true
           ldid -v || echo "✅ ldid installed"
 
@@ -33,16 +31,17 @@ jobs:
           tar -xzf theos_env_full_backup.tar.gz || true
           sudo mkdir -p /opt
           find . -type d -name "theos" -exec sudo mv {} /opt/theos \; || true
-          echo "✅ Theos setup done:"
-          ls -la /opt/theos/bin || true
+          echo "✅ Theos ready at /opt/theos"
 
-      - name: 🛠️ Build tweak
+      - name: 🛠️ Build tweak (.deb)
         run: |
           export THEOS=/opt/theos
           export PATH=$THEOS/bin:$PATH
-          echo "🔧 Using Theos from: $THEOS"
+          echo "🔧 Building tweak using Theos"
           make clean || true
-          make FINALPACKAGE=1 || make
+          make package FINALPACKAGE=1
+          echo "✅ Build finished, checking for .deb files..."
+          ls -la packages || true
 
       - name: 🎯 Extract dylib from .deb
         run: |
@@ -50,6 +49,8 @@ jobs:
           DEB_FILE=$(ls packages/*.deb 2>/dev/null | head -n 1)
           if [ -z "$DEB_FILE" ]; then
             echo "❌ No .deb package found!"
+            echo "🔎 Checking entire repo for .deb..."
+            find . -name "*.deb"
             exit 1
           fi
           echo "📦 Found package: $DEB_FILE"
