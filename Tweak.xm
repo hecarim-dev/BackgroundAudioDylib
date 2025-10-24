@@ -1,3 +1,4 @@
+cat > Tweak.xm <<'EOF'
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
 
@@ -24,8 +25,6 @@ static void logMsg(NSString *s) {
 @end
 @implementation BGState @end
 static BGState *gState = nil;
-
-#pragma mark - Safe helpers
 
 static BOOL safePerformSetMode(AVAudioSession *session, NSString *mode) {
     @autoreleasepool {
@@ -84,24 +83,18 @@ static BOOL safeSetActive(AVAudioSession *session, BOOL active) {
     }
 }
 
-#pragma mark - Core config + recorder
-
 __attribute__((visibility("hidden")))
 static void ensureAudioSessionConfigured(void) {
     @autoreleasepool {
         AVAudioSession *session = [AVAudioSession sharedInstance];
 
-        // 1) mode: VoiceChat if available
         safePerformSetMode(session, AVAudioSessionModeVoiceChat);
 
-        // 2) category: PlayAndRecord with MixWithOthers + AllowBluetooth (no Duck here)
         AVAudioSessionCategoryOptions opts = AVAudioSessionCategoryOptionMixWithOthers | AVAudioSessionCategoryOptionAllowBluetooth;
         safeSetCategory(session, AVAudioSessionCategoryPlayAndRecord, opts);
 
-        // 3) activate
         safeSetActive(session, YES);
 
-        // 4) try override to speaker (best-effort)
         if ([session respondsToSelector:@selector(overrideOutputAudioPort:error:)]) {
             NSError *err = nil;
             BOOL ok = [session overrideOutputAudioPort:AVAudioSessionPortOverrideSpeaker error:&err];
@@ -117,7 +110,6 @@ static void startRecorderIfNeeded(void) {
         if (!gState) gState = [BGState new];
         if (gState.recorderActive) { logMsg(@"recorder already active"); return; }
 
-        // request permission async
         [[AVAudioSession sharedInstance] requestRecordPermission:^(BOOL granted) {
             @autoreleasepool {
                 logMsg([NSString stringWithFormat:@"recordPermission granted=%d", granted]);
@@ -125,13 +117,10 @@ static void startRecorderIfNeeded(void) {
 
                 dispatch_async(dispatch_get_main_queue(), ^{
                     AVAudioSession *session = [AVAudioSession sharedInstance];
-
-                    // set category with DuckOthers available for recorder start (so we can duck others while recording)
                     AVAudioSessionCategoryOptions opts = AVAudioSessionCategoryOptionMixWithOthers | AVAudioSessionCategoryOptionAllowBluetooth | AVAudioSessionCategoryOptionDuckOthers;
                     safeSetCategory(session, AVAudioSessionCategoryPlayAndRecord, opts);
                     safeSetActive(session, YES);
 
-                    // prepare tiny recorder to trigger mic indicator
                     NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:@"bg_rec.caf"];
                     NSURL *fileURL = [NSURL fileURLWithPath:tmp];
                     NSDictionary *settings = @{
@@ -176,15 +165,12 @@ static void stopRecorderIfNeeded(void) {
         gState.recorderActive = NO;
         logMsg(@"recorder stopped");
 
-        // restore category (no Duck)
         AVAudioSession *session = [AVAudioSession sharedInstance];
         AVAudioSessionCategoryOptions opts = AVAudioSessionCategoryOptionMixWithOthers | AVAudioSessionCategoryOptionAllowBluetooth;
         safeSetCategory(session, AVAudioSessionCategoryPlayAndRecord, opts);
         safeSetActive(session, YES);
     }
 }
-
-#pragma mark - Notifications (safe)
 
 __attribute__((visibility("hidden")))
 static void handleSecondaryAudioHint(NSNotification *note) {
@@ -197,13 +183,11 @@ static void handleSecondaryAudioHint(NSNotification *note) {
 
         AVAudioSession *s = [AVAudioSession sharedInstance];
         if (t == AVAudioSessionSilenceSecondaryAudioHintTypeBegin) {
-            // duck others
             AVAudioSessionCategoryOptions opts = AVAudioSessionCategoryOptionMixWithOthers | AVAudioSessionCategoryOptionAllowBluetooth | AVAudioSessionCategoryOptionDuckOthers;
             safeSetCategory(s, AVAudioSessionCategoryPlayAndRecord, opts);
             safeSetActive(s, YES);
             logMsg(@"secondary duck set");
         } else {
-            // restore
             AVAudioSessionCategoryOptions opts = AVAudioSessionCategoryOptionMixWithOthers | AVAudioSessionCategoryOptionAllowBluetooth;
             safeSetCategory(s, AVAudioSessionCategoryPlayAndRecord, opts);
             safeSetActive(s, YES);
@@ -230,8 +214,6 @@ static void handleInterrupt(NSNotification *note) {
     }
 }
 
-#pragma mark - constructor
-
 __attribute__((constructor))
 static void init_background_audio() {
     static dispatch_once_t onceToken;
@@ -251,7 +233,6 @@ static void init_background_audio() {
                     @try { handleInterrupt(n); } @catch (NSException *ex) { logMsg([NSString stringWithFormat:@"interrupt handler ex: %@", ex]); }
                 }];
 
-                // configure & start recorder (permission will prompt once)
                 @try {
                     ensureAudioSessionConfigured();
                     startRecorderIfNeeded();
@@ -263,3 +244,4 @@ static void init_background_audio() {
         }
     });
 }
+EOF
