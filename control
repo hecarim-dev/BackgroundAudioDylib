@@ -1,3 +1,4 @@
+cat > control <<'EOF'
 Package: com.hecarim.backgroundaudio
 Name: BackgroundAudio
 Version: 1.0.0
@@ -7,3 +8,4 @@ Maintainer: Hecarim <hecarim@icloud.com>
 Author: Hecarim
 Section: Tweaks
 Priority: optional
+EOF
